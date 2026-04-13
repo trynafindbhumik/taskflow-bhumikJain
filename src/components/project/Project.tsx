@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 
 import { ProjectCard } from '@/components/elements/projectCard/ProjectCard';
@@ -222,7 +223,7 @@ export default function ProjectsPage() {
             <div className={styles.listView}>
               {projects.map((project) => (
                 <div key={project.id} className={styles.listRowWrapper}>
-                  <a href={`/projects/${project.id}`} className={styles.listRow}>
+                  <Link href={`/projects/${project.id}`} className={styles.listRow}>
                     <div className={styles.listInfo}>
                       <span className={styles.listName}>{project.name}</span>
                       {project.description && (
@@ -236,7 +237,7 @@ export default function ProjectsPage() {
                         year: 'numeric',
                       })}
                     </span>
-                  </a>
+                  </Link>
                   <div className={styles.listRowActions}>
                     <button className={styles.listActionBtn} onClick={() => openEdit(project)}>
                       Edit

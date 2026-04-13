@@ -246,7 +246,7 @@ export default function ProjectDetailPage() {
           description: createForm.description.trim() || undefined,
           status: createForm.status,
           priority: createForm.priority,
-          assignee_id: createForm.assignee_id || undefined,
+          assignee_id: createForm.assignee_id,
           due_date: createForm.due_date || undefined,
         }),
       })) as Task;
@@ -287,7 +287,7 @@ export default function ProjectDetailPage() {
           description: editForm.description.trim() || undefined,
           status: editForm.status,
           priority: editForm.priority,
-          assignee_id: editForm.assignee_id || undefined,
+          assignee_id: editForm.assignee_id,
           due_date: editForm.due_date || undefined,
         }),
       })) as Task;
@@ -338,6 +338,11 @@ export default function ProjectDetailPage() {
     try {
       await apiFetch(`/projects/${projectId}/members/${userId}`, { method: 'DELETE' });
       setMembers((prev) => prev.filter((m) => m.id !== userId));
+
+      // Refresh tasks to reflect any unassignments made by the backend
+      const updatedTasks = (await apiFetch(`/projects/${projectId}/tasks`)) as Task[];
+      setTasks(updatedTasks);
+
       showToast('Member removed', 'success');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to remove member', 'error');
@@ -362,10 +367,7 @@ export default function ProjectDetailPage() {
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const invalid = emails.filter((e) => !EMAIL_REGEX.test(e));
     if (invalid.length > 0) {
-      showToast(
-        `Invalid email${invalid.length > 1 ? 's' : ''}: ${invalid.join(', ')}`,
-        'error'
-      );
+      showToast(`Invalid email${invalid.length > 1 ? 's' : ''}: ${invalid.join(', ')}`, 'error');
       return;
     }
 

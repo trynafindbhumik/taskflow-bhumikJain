@@ -1,10 +1,10 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Mail, ArrowRight, Eye, EyeOff, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -25,11 +25,16 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+const DEMO_EMAIL = 'test@example.com';
+const DEMO_PASSWORD = 'password123';
+
 export default function LoginComponent() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [copiedField, setCopiedField] = useState<'email' | 'password' | null>(null);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
 
   const {
@@ -37,10 +42,22 @@ export default function LoginComponent() {
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     mode: 'onBlur',
   });
+
+  const handleCopyToClipboard = useCallback((text: string, field: 'email' | 'password') => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  }, []);
+
+  const handleFillDemoCredentials = useCallback(() => {
+    setValue('email', DEMO_EMAIL);
+    setValue('password', DEMO_PASSWORD);
+  }, [setValue]);
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
@@ -55,7 +72,11 @@ export default function LoginComponent() {
       auth.setUser(res.user);
 
       showToast(`Welcome back, ${res.user.name?.split(' ')[0]}!`, 'success');
-      router.push('/dashboard');
+
+      const redirect = searchParams.get('redirect');
+      const redirectTo = redirect ? decodeURIComponent(redirect) : '/dashboard';
+
+      router.push(redirectTo);
       reset(); // optional: clear form
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Invalid email or password';
@@ -69,6 +90,52 @@ export default function LoginComponent() {
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your account to continue.">
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <div className={styles.demoCredentialsContainer}>
+          <div className={styles.demoCredentialsHeader}>
+            <h3 className={styles.demoCredentialsTitle}>Demo Credentials</h3>
+            <button
+              type="button"
+              className={styles.fillButton}
+              onClick={handleFillDemoCredentials}
+              aria-label="Fill demo credentials"
+            >
+              Fill Demo
+            </button>
+          </div>
+
+          <div className={styles.credentialsGrid}>
+            <div className={styles.credentialItem}>
+              <label className={styles.credentialLabel}>Email:</label>
+              <div className={styles.credentialValue}>
+                <code className={styles.credentialCode}>{DEMO_EMAIL}</code>
+                <button
+                  type="button"
+                  className={styles.copyButton}
+                  onClick={() => handleCopyToClipboard(DEMO_EMAIL, 'email')}
+                  aria-label="Copy email"
+                >
+                  {copiedField === 'email' ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.credentialItem}>
+              <label className={styles.credentialLabel}>Password:</label>
+              <div className={styles.credentialValue}>
+                <code className={styles.credentialCode}>{DEMO_PASSWORD}</code>
+                <button
+                  type="button"
+                  className={styles.copyButton}
+                  onClick={() => handleCopyToClipboard(DEMO_PASSWORD, 'password')}
+                  aria-label="Copy password"
+                >
+                  {copiedField === 'password' ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <Input
           label="Email address"
           placeholder="you@example.com"

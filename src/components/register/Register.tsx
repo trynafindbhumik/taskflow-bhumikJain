@@ -56,7 +56,7 @@ export default function RegisterComponent() {
       auth.setToken(res.token);
       auth.setUser(res.user);
       showToast('Account created successfully!', 'success');
-      router.push('/');
+      router.push('/dashboard');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Registration failed';
       showToast(message, 'error');

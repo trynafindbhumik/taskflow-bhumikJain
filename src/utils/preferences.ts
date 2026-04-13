@@ -17,8 +17,7 @@ function safeGet(key: string): string | null {
 function safeSet(key: string, value: string): void {
   try {
     if (typeof window !== 'undefined') localStorage.setItem(key, value);
-  } catch {
-  }
+  } catch {}
 }
 
 export const preferences = {

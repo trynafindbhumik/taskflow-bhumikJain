@@ -21,6 +21,17 @@ export const metadata: Metadata = {
   description: 'Made by Bhumik Jain',
 };
 
+const themeInitScript = `
+  (function () {
+    try {
+      var saved = localStorage.getItem('tf-theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = saved === 'dark' || saved === 'light' ? saved : (prefersDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (_) {}
+  })();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,9 +41,12 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
+      {/* Blocking script — must run before any CSS is applied */}
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <MSWProvider>
           <ThemeProvider>

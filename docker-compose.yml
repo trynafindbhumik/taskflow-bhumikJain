@@ -6,13 +6,14 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        BACKEND_URL: ${BACKEND_URL:-http://localhost:4000}
     image: taskflow-web:latest
     container_name: taskflow_web
     ports:
       - '${APP_PORT:-3000}:3000'
     environment:
       NODE_ENV: production
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:4000}
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000']

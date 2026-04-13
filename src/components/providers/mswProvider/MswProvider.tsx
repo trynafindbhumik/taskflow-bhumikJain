@@ -17,11 +17,13 @@ export function MSWProvider({ children }: { children: React.ReactNode }) {
 
     const init = async () => {
       try {
-        const { worker } = await import('@/mocks/browser');
-        await worker.start({
-          onUnhandledRequest: 'bypass',
-          quiet: process.env.NODE_ENV === 'development',
-        });
+        if (process.env.NEXT_PUBLIC_USE_MSW !== 'false') {
+          const { worker } = await import('@/mocks/browser');
+          await worker.start({
+            onUnhandledRequest: 'bypass',
+            quiet: process.env.NODE_ENV === 'development',
+          });
+        }
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
           console.warn('[MSW] Worker failed to start:', err);

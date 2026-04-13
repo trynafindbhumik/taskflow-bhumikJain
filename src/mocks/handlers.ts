@@ -11,12 +11,18 @@ import type {
   DeadlineResponse,
 } from '@/utils/types';
 
-
 const mockUsers: User[] = [
   { id: 'u1', name: 'John Doe', email: 'test@example.com', created_at: '2024-01-01T00:00:00Z' },
   { id: 'u2', name: 'Jane Smith', email: 'jane@example.com', created_at: '2024-01-02T00:00:00Z' },
   { id: 'u3', name: 'Alex Kumar', email: 'alex@example.com', created_at: '2024-01-03T00:00:00Z' },
 ];
+
+// Store user credentials for authentication (email -> password)
+const userCredentials: Map<string, string> = new Map([
+  ['test@example.com', 'password123'],
+  ['jane@example.com', 'password123'],
+  ['alex@example.com', 'password123'],
+]);
 
 const mockProjects: Project[] = [
   {
@@ -216,7 +222,6 @@ const mockNotifications: Notification[] = [
   },
 ];
 
-
 function uuid(): string {
   return Math.random().toString(36).slice(2, 11);
 }
@@ -228,27 +233,44 @@ function now(): string {
 function getAuthUser(request: Request): User | null {
   const auth = request.headers.get('Authorization');
   if (!auth?.startsWith('Bearer ')) return null;
-  return mockUsers[0]; // demo: always authenticated as user #1
+
+  // Extract userId from token format "Bearer mock-jwt-{userId}"
+  const token = auth.slice(7);
+  const match = token.match(/^mock-jwt-(.+)$/);
+  if (!match) return null;
+
+  const userId = match[1];
+  return mockUsers.find((u) => u.id === userId) ?? null;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
-
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export const handlers = [
-
   http.post(`${API_BASE}/auth/login`, async ({ request }) => {
     const { email, password } = (await request.json()) as { email: string; password: string };
-    if (email === 'test@example.com' && password === 'password123') {
-      return HttpResponse.json({ token: 'mock-jwt-token', user: mockUsers[0] });
+
+    const user = mockUsers.find((u) => u.email === email);
+    if (!user) {
+      return new HttpResponse(JSON.stringify({ message: 'Invalid email or password' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
-    return new HttpResponse(JSON.stringify({ message: 'Invalid email or password' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
+
+    // Validate password
+    const storedPassword = userCredentials.get(email);
+    if (storedPassword !== password) {
+      return new HttpResponse(JSON.stringify({ message: 'Invalid email or password' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return HttpResponse.json({ token: `mock-jwt-${user.id}`, user });
   }),
 
   http.post(`${API_BASE}/auth/register`, async ({ request }) => {
-    const { email, name } = (await request.json()) as {
+    const { email, name, password } = (await request.json()) as {
       email: string;
       name: string;
       password: string;
@@ -261,7 +283,9 @@ export const handlers = [
     }
     const newUser: User = { id: uuid(), email, name, created_at: now() };
     mockUsers.push(newUser);
-    return HttpResponse.json({ token: `mock-jwt-${uuid()}`, user: newUser }, { status: 201 });
+    // Store the user's password
+    userCredentials.set(email, password);
+    return HttpResponse.json({ token: `mock-jwt-${newUser.id}`, user: newUser }, { status: 201 });
   }),
 
   http.patch(`${API_BASE}/auth/profile`, async ({ request }) => {
@@ -289,7 +313,6 @@ export const handlers = [
     return HttpResponse.json(mockUsers[idx] ?? user);
   }),
 
-
   http.get(`${API_BASE}/stats`, ({ request }) => {
     const user = getAuthUser(request);
     if (!user) return new HttpResponse(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
@@ -309,7 +332,6 @@ export const handlers = [
     });
   }),
 
-
   http.get(`${API_BASE}/projects`, ({ request }) => {
     const user = getAuthUser(request);
     if (!user) return new HttpResponse(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
@@ -319,8 +341,15 @@ export const handlers = [
     const limit = parseInt(url.searchParams.get('limit') ?? '9', 10);
     const offset = (page - 1) * limit;
 
-    const total = mockProjects.length;
-    const projects = mockProjects.slice(offset, offset + limit);
+    // Filter projects to only those where the user is a member
+    const userProjectIds = mockMembers
+      .filter((m) => m.user_id === user.id)
+      .map((m) => m.project_id);
+
+    const userProjects = mockProjects.filter((p) => userProjectIds.includes(p.id));
+
+    const total = userProjects.length;
+    const projects = userProjects.slice(offset, offset + limit);
 
     return HttpResponse.json({ projects, total, page, limit, has_more: offset + limit < total });
   }),
@@ -386,7 +415,6 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-
   http.get(`${API_BASE}/projects/:id/members`, ({ request, params }) => {
     const user = getAuthUser(request);
     if (!user) return new HttpResponse(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
@@ -430,9 +458,17 @@ export const handlers = [
     );
     if (idx === -1) return new HttpResponse(null, { status: 404 });
     mockMembers.splice(idx, 1);
+
+    // Unassign all tasks in this project that were assigned to the removed member
+    mockTasks.forEach((t) => {
+      if (t.project_id === params.id && t.assignee_id === params.userId) {
+        t.assignee_id = undefined;
+        t.updated_at = now();
+      }
+    });
+
     return new HttpResponse(null, { status: 204 });
   }),
-
 
   http.get(`${API_BASE}/projects/:id/tasks`, ({ request, params }) => {
     const user = getAuthUser(request);
@@ -457,6 +493,8 @@ export const handlers = [
       created_at: now(),
       updated_at: now(),
       ...data,
+      // Normalize empty string assignee_id to undefined
+      assignee_id: data.assignee_id || undefined,
     };
     mockTasks.push(task);
     return HttpResponse.json(task, { status: 201 });
@@ -468,6 +506,10 @@ export const handlers = [
     const data = (await request.json()) as Partial<Task>;
     const idx = mockTasks.findIndex((t) => t.id === params.id);
     if (idx === -1) return new HttpResponse(null, { status: 404 });
+    // Normalize empty string assignee_id to undefined
+    if ('assignee_id' in data && !data.assignee_id) {
+      data.assignee_id = undefined;
+    }
     mockTasks[idx] = { ...mockTasks[idx], ...data, updated_at: now() };
     return HttpResponse.json(mockTasks[idx]);
   }),
@@ -480,7 +522,6 @@ export const handlers = [
     mockTasks.splice(idx, 1);
     return new HttpResponse(null, { status: 204 });
   }),
-
 
   http.get(`${API_BASE}/deadlines`, ({ request }) => {
     const user = getAuthUser(request);
@@ -510,13 +551,11 @@ export const handlers = [
     } satisfies DeadlineResponse);
   }),
 
-
   http.get(`${API_BASE}/users`, ({ request }) => {
     const user = getAuthUser(request);
     if (!user) return new HttpResponse(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
     return HttpResponse.json(mockUsers);
   }),
-
 
   http.get(`${API_BASE}/search`, ({ request }) => {
     const user = getAuthUser(request);
@@ -540,7 +579,6 @@ export const handlers = [
 
     return HttpResponse.json({ projects, tasks } satisfies SearchResult);
   }),
-
 
   http.get(`${API_BASE}/notifications`, ({ request }) => {
     const user = getAuthUser(request);
