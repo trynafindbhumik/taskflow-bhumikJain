@@ -4,6 +4,8 @@
 
 TaskFlow lets teams create projects, manage tasks across status columns, assign work to members, and track deadlines — all inside a clean, dark-mode-capable UI powered by Next.js and mocked with MSW.
 
+**[▶ Watch the demo video](https://www.dropbox.com/scl/fi/6lgzagk81lul7y5b8wlvn/TaskFlow-demo.mkv?rlkey=3qkrocmqo7x9gy1ybpi89g3ut&st=lvpht631&dl=0)**
+
 ---
 
 ## 1. Overview

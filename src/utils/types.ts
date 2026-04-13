@@ -50,6 +50,7 @@ export interface Notification {
   type: 'task_assigned' | 'task_updated' | 'project_invite' | 'deadline';
   created_at: string;
   link?: string;
+  user_id: string;
 }
 
 export interface SearchResult {

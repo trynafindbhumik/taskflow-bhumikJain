@@ -201,6 +201,7 @@ const mockNotifications: Notification[] = [
     type: 'task_assigned',
     created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     link: '/projects/p1',
+    user_id: 'u1',
   },
   {
     id: 'n2',
@@ -210,6 +211,7 @@ const mockNotifications: Notification[] = [
     type: 'deadline',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
     link: '/projects/p2',
+    user_id: 'u1',
   },
   {
     id: 'n3',
@@ -219,6 +221,7 @@ const mockNotifications: Notification[] = [
     type: 'project_invite',
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     link: '/projects/p3',
+    user_id: 'u1',
   },
 ];
 
@@ -531,8 +534,15 @@ export const handlers = [
     const limit = parseInt(url.searchParams.get('limit') ?? '5', 10);
     const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
 
+    // Get projects owned by the user
+    const userProjects = mockProjects.filter((p) => p.owner_id === user.id).map((p) => p.id);
+
     const upcoming = mockTasks
-      .filter((t): t is Task & { due_date: string } => !!t.due_date && t.status !== 'done')
+      .filter((t): t is Task & { due_date: string } => {
+        if (!t.due_date || t.status === 'done') return false;
+        // Include tasks assigned to the user or in projects owned by the user
+        return t.assignee_id === user.id || userProjects.includes(t.project_id);
+      })
       .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
 
     const total = upcoming.length;
@@ -583,17 +593,21 @@ export const handlers = [
   http.get(`${API_BASE}/notifications`, ({ request }) => {
     const user = getAuthUser(request);
     if (!user) return new HttpResponse(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
-    return HttpResponse.json(mockNotifications);
+    return HttpResponse.json(mockNotifications.filter((n) => n.user_id === user.id));
   }),
 
-  http.patch(`${API_BASE}/notifications/:id/read`, ({ params }) => {
-    const notif = mockNotifications.find((n) => n.id === params.id);
+  http.patch(`${API_BASE}/notifications/:id/read`, ({ request, params }) => {
+    const user = getAuthUser(request);
+    if (!user) return new HttpResponse(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
+    const notif = mockNotifications.find((n) => n.id === params.id && n.user_id === user.id);
     if (notif) notif.read = true;
     return HttpResponse.json(notif ?? null);
   }),
 
-  http.post(`${API_BASE}/notifications/read-all`, () => {
-    mockNotifications.forEach((n) => (n.read = true));
+  http.post(`${API_BASE}/notifications/read-all`, ({ request }) => {
+    const user = getAuthUser(request);
+    if (!user) return new HttpResponse(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
+    mockNotifications.filter((n) => n.user_id === user.id).forEach((n) => (n.read = true));
     return HttpResponse.json({ ok: true });
   }),
 ];
