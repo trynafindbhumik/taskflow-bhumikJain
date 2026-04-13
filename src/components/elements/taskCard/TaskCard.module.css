@@ -1,0 +1,291 @@
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.875rem 0.75rem 0.875rem 0.875rem;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  cursor: grab;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+  position: relative;
+  animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card:active {
+  cursor: grabbing;
+  box-shadow: var(--shadow-lg);
+  opacity: 0.9;
+}
+
+.card:hover,
+.card.menuActive {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.dropAbove {
+  border-top: 2px solid var(--primary) !important;
+}
+.dropBelow {
+  border-bottom: 2px solid var(--primary) !important;
+}
+
+.dragHandle {
+  color: var(--border-strong);
+  display: flex;
+  align-items: center;
+  padding-top: 0.125rem;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.card:hover .dragHandle,
+.card.menuActive .dragHandle {
+  opacity: 1;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.statusBtn {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+
+.statusBtn:hover {
+  transform: scale(1.15);
+}
+
+.status_todo {
+  color: var(--muted-foreground);
+}
+.status_todo:hover {
+  color: var(--status-todo-fg);
+}
+.status_in_progress {
+  color: var(--status-progress-fg);
+}
+.status_done {
+  color: var(--status-done-fg);
+}
+
+.title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1.4;
+  word-break: break-word;
+  flex: 1;
+}
+
+.titleDone {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+.description {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.125rem;
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.priority {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+.priority_low {
+  background-color: var(--priority-low-bg);
+  color: var(--priority-low-fg);
+}
+.priority_medium {
+  background-color: var(--priority-medium-bg);
+  color: var(--priority-medium-fg);
+}
+.priority_high {
+  background-color: var(--priority-high-bg);
+  color: var(--priority-high-fg);
+}
+
+.dueDate {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.assignee {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background-color: var(--primary);
+  color: #fff;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.assigneeNone {
+  background-color: var(--secondary);
+  color: var(--muted-foreground);
+}
+
+.assigneeUnknown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Three-dot button — appears on hover */
+.menuBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  opacity: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.card:hover .menuBtn,
+.card.menuActive .menuBtn {
+  opacity: 1;
+}
+
+.menuBtn:hover {
+  background-color: var(--secondary);
+  color: var(--foreground);
+}
+
+/* Context menu — rendered via portal at document.body with position:fixed */
+.contextMenu {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 0.3rem;
+  min-width: 140px;
+  z-index: 9999;
+  animation: menuIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes menuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.contextItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.625rem;
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--foreground);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.contextItem:hover {
+  background-color: var(--secondary);
+}
+.contextItemDanger {
+  color: var(--primary);
+}
+.contextItemDanger:hover {
+  background-color: var(--primary-subtle);
+}

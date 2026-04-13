@@ -1,0 +1,152 @@
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background-color: var(--secondary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  min-height: 300px;
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+  border: 2px solid transparent;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* 👈 important */
+}
+
+.column.dragOver {
+  background-color: var(--primary-subtle);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+  position: sticky;
+  top: 0;
+  background-color: var(--secondary);
+  z-index: 1;
+  padding-bottom: 0.25rem;
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.colTodo {
+  background-color: var(--status-todo-fg);
+}
+.colProgress {
+  background-color: var(--status-progress-fg);
+}
+.colDone {
+  background-color: var(--status-done-fg);
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--foreground);
+}
+
+.count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: var(--border);
+  color: var(--muted-foreground);
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.addBtn:hover {
+  color: var(--primary);
+  background-color: var(--primary-subtle);
+}
+
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  flex: 1;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.emptyActive {
+  border-color: var(--primary);
+  background-color: var(--primary-subtle);
+  color: var(--primary);
+}
+
+/* Custom scrollbar inside column */
+.column::-webkit-scrollbar {
+  width: 4px;
+}
+.column::-webkit-scrollbar-track {
+  background: transparent;
+}
+.column::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-full);
+}
+
+@media (max-width: 1024px) {
+  .column {
+    max-height: 400px;
+  }
+}
