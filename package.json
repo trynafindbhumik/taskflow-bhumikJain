@@ -10,7 +10,8 @@
     "format:check": "prettier --check .",
     "prebuild": "pnpm lint && pnpm format:check",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "start:standalone": "node .next/standalone/server.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
