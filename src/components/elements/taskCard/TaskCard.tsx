@@ -10,6 +10,11 @@ import {
   Pencil,
   Trash2,
   UserX,
+  AlertCircle,
+  CheckSquare,
+  Square,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -21,6 +26,7 @@ import styles from './TaskCard.module.css';
 interface TaskCardProps extends Task {
   members?: UserType[];
   onStatusChange?: (id: string, status: TaskStatus) => void;
+  onSubtaskToggle?: (taskId: string, subtaskId: string, completed: boolean) => void;
   onEdit?: (task: Task) => void;
   onDelete?: (id: string) => void;
   onDragStart?: (e: React.DragEvent, id: string) => void;
@@ -58,11 +64,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   priority,
   assignee_id,
   due_date,
+  subtasks,
   project_id,
   created_at,
   updated_at,
   members = [],
   onStatusChange,
+  onSubtaskToggle,
   onEdit,
   onDelete,
   onDragStart,
@@ -71,6 +79,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isDraggedOver,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
 
   const menuBtnRef = useRef<HTMLButtonElement>(null);
@@ -161,6 +170,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       priority,
       assignee_id,
       due_date,
+      subtasks,
       project_id,
       created_at,
       updated_at,
@@ -182,11 +192,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       })
     : null;
 
+  const totalSubtasks = subtasks?.length ?? 0;
+  const completedSubtasks = subtasks?.filter((s) => s.completed).length ?? 0;
+
+  const isOverdue =
+    !!due_date &&
+    status !== 'done' &&
+    new Date(due_date + 'T23:59:59').getTime() < new Date().getTime();
+
   const cardClass = [
     styles.card,
     menuOpen ? styles.menuActive : '',
     isDraggedOver === 'above' ? styles.dropAbove : '',
     isDraggedOver === 'below' ? styles.dropBelow : '',
+    isOverdue ? styles.cardOverdue : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -219,14 +238,69 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
         {description && <p className={styles.description}>{description}</p>}
 
+        {showSubtasks && subtasks && subtasks.length > 0 && (
+          <div className={styles.cardSubtaskList} onClick={(e) => e.stopPropagation()}>
+            {subtasks.map((st) => (
+              <div
+                key={st.id}
+                className={styles.cardSubtaskRow}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSubtaskToggle?.(id, st.id, !st.completed);
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <span className={styles.cardSubtaskCheck}>
+                  {st.completed ? (
+                    <CheckSquare size={12} className={styles.subtaskCheckDone} />
+                  ) : (
+                    <Square size={12} className={styles.subtaskCheckTodo} />
+                  )}
+                </span>
+                <span
+                  className={`${styles.cardSubtaskTitle} ${st.completed ? styles.subtaskTitleDone : ''}`}
+                >
+                  {st.title}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className={styles.footer}>
-          <span className={`${styles.priority} ${styles[`priority_${priority}`]}`}>{priority}</span>
+          <div className={styles.footerLeft}>
+            <span className={`${styles.priority} ${styles[`priority_${priority}`]}`}>
+              {priority}
+            </span>
+            {totalSubtasks > 0 && (
+              <button
+                type="button"
+                className={styles.subtaskBadgeBtn}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowSubtasks((v) => !v);
+                }}
+                title={`${completedSubtasks} of ${totalSubtasks} subtasks completed. Click to ${showSubtasks ? 'hide' : 'show'} checklist.`}
+              >
+                <CheckSquare size={10} />
+                {completedSubtasks}/{totalSubtasks}
+                {showSubtasks ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              </button>
+            )}
+          </div>
 
           <div className={styles.footerRight}>
             {formattedDate && (
-              <span className={styles.dueDate}>
-                <Calendar size={11} />
+              <span
+                className={`${styles.dueDate} ${isOverdue ? styles.dueDateOverdue : ''}`}
+                title={isOverdue ? 'Overdue task' : `Due ${formattedDate}`}
+              >
+                {isOverdue ? <AlertCircle size={11} /> : <Calendar size={11} />}
                 {formattedDate}
+                {isOverdue && <span className={styles.overdueText}>Overdue</span>}
               </span>
             )}
 

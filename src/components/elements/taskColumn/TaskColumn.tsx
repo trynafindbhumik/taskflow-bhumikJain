@@ -19,6 +19,7 @@ interface TaskColumnProps {
   tasks: Task[];
   members?: User[];
   onStatusChange: (id: string, status: TaskStatus) => void;
+  onSubtaskToggle?: (taskId: string, subtaskId: string, completed: boolean) => void;
   onReorder: (draggedId: string, targetId: string, position: 'above' | 'below') => void;
   onAddTask: (status: TaskStatus) => void;
   onEditTask: (task: Task) => void;
@@ -30,6 +31,7 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
   tasks,
   members = [],
   onStatusChange,
+  onSubtaskToggle,
   onReorder,
   onAddTask,
   onEditTask,
@@ -153,6 +155,7 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
             {...task}
             members={members}
             onStatusChange={onStatusChange}
+            onSubtaskToggle={onSubtaskToggle}
             onEdit={onEditTask}
             onDelete={onDeleteTask}
             onDragStart={handleCardDragStart}

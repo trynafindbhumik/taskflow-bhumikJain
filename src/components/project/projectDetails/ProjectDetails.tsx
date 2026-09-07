@@ -11,6 +11,11 @@ import {
   UserMinus,
   Loader2,
   Mail,
+  Trash2,
+  CheckSquare,
+  Square,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
@@ -26,7 +31,15 @@ import { SideSheet } from '@/components/ui/sideSheet/SideSheet';
 import { useToast } from '@/components/ui/toast/ToastContext';
 import { apiFetch } from '@/utils/api';
 import { preferences } from '@/utils/preferences';
-import type { Project, Task, TaskStatus, TaskPriority, User, ProjectMember } from '@/utils/types';
+import type {
+  Project,
+  Task,
+  TaskStatus,
+  TaskPriority,
+  User,
+  ProjectMember,
+  Subtask,
+} from '@/utils/types';
 
 import styles from './ProjectDetails.module.css';
 
@@ -65,6 +78,7 @@ interface TaskForm {
   priority: TaskPriority;
   assignee_id: string;
   due_date: string;
+  subtasks: Subtask[];
 }
 
 const DEFAULT_FORM: TaskForm = {
@@ -74,6 +88,7 @@ const DEFAULT_FORM: TaskForm = {
   priority: 'medium',
   assignee_id: '',
   due_date: '',
+  subtasks: [],
 };
 
 const MAX_DESC = 180;
@@ -109,6 +124,12 @@ export default function ProjectDetailPage() {
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [expandedListTaskIds, setExpandedListTaskIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+
   const [membersOpen, setMembersOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -137,7 +158,6 @@ export default function ProjectDetailPage() {
         setTasks(tasksData);
         setMembers(membersData.map((m) => m.user));
       } catch {
-        // Project doesn't exist or failed to load — show 404
         setIsNotFound(true);
       } finally {
         setIsLoading(false);
@@ -162,7 +182,6 @@ export default function ProjectDetailPage() {
     fetchUsers();
   }, [membersOpen, showToast]);
 
-  // ── Assignee filter options derived from current project members ──
   const assigneeFilterOptions = useMemo(
     () => [
       { value: 'all', label: 'All Assignees' },
@@ -211,6 +230,38 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleSubtaskToggle = async (taskId: string, subtaskId: string, completed: boolean) => {
+    const prev = [...tasks];
+    let updatedSubtasks: Subtask[] = [];
+
+    setTasks((ts) =>
+      ts.map((t) => {
+        if (t.id !== taskId) return t;
+        updatedSubtasks = (t.subtasks ?? []).map((st) =>
+          st.id === subtaskId ? { ...st, completed } : st
+        );
+        return { ...t, subtasks: updatedSubtasks, updated_at: new Date().toISOString() };
+      })
+    );
+
+    if (editSheet?.id === taskId) {
+      setEditForm((f) => ({
+        ...f,
+        subtasks: f.subtasks.map((st) => (st.id === subtaskId ? { ...st, completed } : st)),
+      }));
+    }
+
+    try {
+      await apiFetch(`/tasks/${taskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ subtasks: updatedSubtasks }),
+      });
+    } catch {
+      setTasks(prev);
+      showToast('Failed to update subtask', 'error');
+    }
+  };
+
   const handleReorder = useCallback(
     (draggedId: string, targetId: string, position: 'above' | 'below') => {
       setTasks((prev) => {
@@ -227,8 +278,126 @@ export default function ProjectDetailPage() {
     []
   );
 
+  const toggleSelectTask = (id: string) => {
+    setSelectedTaskIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTaskIds.length === filteredTasks.length && filteredTasks.length > 0) {
+      setSelectedTaskIds([]);
+    } else {
+      setSelectedTaskIds(filteredTasks.map((t) => t.id));
+    }
+  };
+
+  const handleBulkStatus = async (status: string) => {
+    if (!status || selectedTaskIds.length === 0) return;
+    const ids = [...selectedTaskIds];
+    const prev = [...tasks];
+    setTasks((ts) =>
+      ts.map((t) =>
+        ids.includes(t.id)
+          ? { ...t, status: status as TaskStatus, updated_at: new Date().toISOString() }
+          : t
+      )
+    );
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          apiFetch(`/tasks/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+          })
+        )
+      );
+      showToast(`Updated status for ${ids.length} task(s)`, 'success');
+      setSelectedTaskIds([]);
+    } catch {
+      setTasks(prev);
+      showToast('Failed to update task statuses', 'error');
+    }
+  };
+
+  const handleBulkPriority = async (priority: string) => {
+    if (!priority || selectedTaskIds.length === 0) return;
+    const ids = [...selectedTaskIds];
+    const prev = [...tasks];
+    setTasks((ts) =>
+      ts.map((t) =>
+        ids.includes(t.id)
+          ? { ...t, priority: priority as TaskPriority, updated_at: new Date().toISOString() }
+          : t
+      )
+    );
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          apiFetch(`/tasks/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ priority }),
+          })
+        )
+      );
+      showToast(`Updated priority for ${ids.length} task(s)`, 'success');
+      setSelectedTaskIds([]);
+    } catch {
+      setTasks(prev);
+      showToast('Failed to update task priorities', 'error');
+    }
+  };
+
+  const handleBulkAssignee = async (assigneeId: string) => {
+    if (selectedTaskIds.length === 0) return;
+    const ids = [...selectedTaskIds];
+    const prev = [...tasks];
+    setTasks((ts) =>
+      ts.map((t) =>
+        ids.includes(t.id)
+          ? { ...t, assignee_id: assigneeId || undefined, updated_at: new Date().toISOString() }
+          : t
+      )
+    );
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          apiFetch(`/tasks/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ assignee_id: assigneeId || undefined }),
+          })
+        )
+      );
+      showToast(`Updated assignee for ${ids.length} task(s)`, 'success');
+      setSelectedTaskIds([]);
+    } catch {
+      setTasks(prev);
+      showToast('Failed to update task assignees', 'error');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTaskIds.length === 0) return;
+    setIsBulkDeleting(true);
+    const ids = [...selectedTaskIds];
+    const prev = [...tasks];
+    setTasks((ts) => ts.filter((t) => !ids.includes(t.id)));
+    try {
+      await Promise.all(ids.map((id) => apiFetch(`/tasks/${id}`, { method: 'DELETE' })));
+      showToast(`Deleted ${ids.length} task(s)`, 'success');
+      setSelectedTaskIds([]);
+      setBulkDeleteOpen(false);
+    } catch {
+      setTasks(prev);
+      showToast('Failed to delete tasks', 'error');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   const openCreate = (status: TaskStatus) => {
-    setCreateForm({ ...DEFAULT_FORM, status });
+    setCreateForm({ ...DEFAULT_FORM, status, subtasks: [] });
+    setNewSubtaskTitle('');
     setCreateOpen(true);
   };
 
@@ -248,11 +417,13 @@ export default function ProjectDetailPage() {
           priority: createForm.priority,
           assignee_id: createForm.assignee_id,
           due_date: createForm.due_date || undefined,
+          subtasks: createForm.subtasks,
         }),
       })) as Task;
       setTasks((ts) => [...ts, task]);
       setCreateOpen(false);
       setCreateForm(DEFAULT_FORM);
+      setNewSubtaskTitle('');
       showToast('Task created successfully', 'success');
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : 'Failed to create task', 'error');
@@ -270,7 +441,9 @@ export default function ProjectDetailPage() {
       priority: task.priority,
       assignee_id: task.assignee_id ?? '',
       due_date: task.due_date ?? '',
+      subtasks: task.subtasks ? [...task.subtasks] : [],
     });
+    setNewSubtaskTitle('');
   };
 
   const handleEditSave = async () => {
@@ -289,6 +462,7 @@ export default function ProjectDetailPage() {
           priority: editForm.priority,
           assignee_id: editForm.assignee_id,
           due_date: editForm.due_date || undefined,
+          subtasks: editForm.subtasks,
         }),
       })) as Task;
       setTasks((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
@@ -475,6 +649,119 @@ export default function ProjectDetailPage() {
           onChange={(v) => setForm((f) => ({ ...f, due_date: v }))}
         />
       </div>
+
+      <div className={styles.subtasksSection}>
+        <div className={styles.subtasksHeader}>
+          <label className={styles.fieldLabel}>
+            Subtasks ({form.subtasks.filter((s) => s.completed).length} of {form.subtasks.length})
+          </label>
+          {form.subtasks.length > 0 && (
+            <div className={styles.subtaskProgressBar}>
+              <div
+                className={styles.subtaskProgressFill}
+                style={{
+                  width: `${Math.round(
+                    (form.subtasks.filter((s) => s.completed).length / form.subtasks.length) * 100
+                  )}%`,
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className={styles.subtaskList}>
+          {form.subtasks.map((st) => (
+            <div key={st.id} className={styles.subtaskRow}>
+              <button
+                type="button"
+                className={styles.subtaskCheckbox}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    subtasks: f.subtasks.map((item) =>
+                      item.id === st.id ? { ...item, completed: !item.completed } : item
+                    ),
+                  }))
+                }
+                aria-label={st.completed ? 'Mark subtask incomplete' : 'Mark subtask complete'}
+              >
+                {st.completed ? (
+                  <CheckSquare size={16} className={styles.subtaskCheckDone} />
+                ) : (
+                  <Square size={16} className={styles.subtaskCheckTodo} />
+                )}
+              </button>
+              <span
+                className={`${styles.subtaskTitle} ${st.completed ? styles.subtaskTitleDone : ''}`}
+              >
+                {st.title}
+              </span>
+              <button
+                type="button"
+                className={styles.subtaskRemoveBtn}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    subtasks: f.subtasks.filter((item) => item.id !== st.id),
+                  }))
+                }
+                aria-label="Delete subtask"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className={styles.subtaskInputRow}>
+          <input
+            className={styles.subtaskInput}
+            placeholder="Add a subtask…"
+            value={newSubtaskTitle}
+            onChange={(e) => setNewSubtaskTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (!newSubtaskTitle.trim()) return;
+                setForm((f) => ({
+                  ...f,
+                  subtasks: [
+                    ...f.subtasks,
+                    {
+                      id: `st_${Math.random().toString(36).slice(2, 9)}`,
+                      title: newSubtaskTitle.trim(),
+                      completed: false,
+                    },
+                  ],
+                }));
+                setNewSubtaskTitle('');
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!newSubtaskTitle.trim()) return;
+              setForm((f) => ({
+                ...f,
+                subtasks: [
+                  ...f.subtasks,
+                  {
+                    id: `st_${Math.random().toString(36).slice(2, 9)}`,
+                    title: newSubtaskTitle.trim(),
+                    completed: false,
+                  },
+                ],
+              }));
+              setNewSubtaskTitle('');
+            }}
+          >
+            Add
+          </Button>
+        </div>
+      </div>
     </div>
   );
 
@@ -580,6 +867,7 @@ export default function ProjectDetailPage() {
                 tasks={tasksByStatus[status]}
                 members={members}
                 onStatusChange={handleStatusChange}
+                onSubtaskToggle={handleSubtaskToggle}
                 onReorder={handleReorder}
                 onAddTask={openCreate}
                 onEditTask={openEdit}
@@ -588,55 +876,217 @@ export default function ProjectDetailPage() {
             ))}
           </div>
         ) : (
-          <div className={styles.listView}>
-            {filteredTasks.length === 0 ? (
-              <div className={styles.emptyState}>
-                <p>No tasks match your filters.</p>
-                <Button variant="outline" size="sm" onClick={() => openCreate('todo')}>
-                  Add a task
-                </Button>
-              </div>
-            ) : (
-              filteredTasks.map((task) => {
-                const assignee = members.find((m) => m.id === task.assignee_id);
-                return (
-                  <div
-                    key={task.id}
-                    className={styles.listRow}
-                    onClick={() => openEdit(task)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && openEdit(task)}
-                  >
-                    <span className={`${styles.listStatus} ${styles[`listStatus_${task.status}`]}`}>
-                      {task.status.replace('_', ' ')}
-                    </span>
-                    <div className={styles.listMain}>
-                      <span className={styles.listTitle}>{task.title}</span>
-                      {task.description && (
-                        <span className={styles.listDesc}>{task.description}</span>
-                      )}
-                    </div>
-                    <span
-                      className={`${styles.listPriority} ${styles[`listPriority_${task.priority}`]}`}
-                    >
-                      {task.priority}
-                    </span>
-                    {assignee && (
-                      <span className={styles.listAssignee} title={assignee.name}>
-                        {assignee.name
-                          .split(' ')
-                          .map((n) => n[0])
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </span>
-                    )}
-                    <span className={styles.listDate}>{task.due_date ?? '—'}</span>
+          <div className={styles.listViewWrap}>
+            {selectedTaskIds.length > 0 && (
+              <div className={styles.bulkBar}>
+                <span className={styles.bulkCount}>{selectedTaskIds.length} task(s) selected</span>
+                <div className={styles.bulkActions}>
+                  <div className={styles.bulkSelectWrap}>
+                    <Select
+                      options={STATUS_FORM_OPTIONS}
+                      value=""
+                      onChange={handleBulkStatus}
+                      placeholder="Status…"
+                    />
                   </div>
-                );
-              })
+                  <div className={styles.bulkSelectWrap}>
+                    <Select
+                      options={PRIORITY_OPTIONS}
+                      value=""
+                      onChange={handleBulkPriority}
+                      placeholder="Priority…"
+                    />
+                  </div>
+                  <div className={styles.bulkSelectWrap}>
+                    <Select
+                      options={memberOptions}
+                      value=""
+                      onChange={handleBulkAssignee}
+                      placeholder="Assignee…"
+                    />
+                  </div>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setBulkDeleteOpen(true)}
+                    leftIcon={<Trash2 size={13} />}
+                  >
+                    Delete ({selectedTaskIds.length})
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedTaskIds([])}>
+                    Deselect
+                  </Button>
+                </div>
+              </div>
             )}
+
+            <div className={styles.listView}>
+              {filteredTasks.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <p>No tasks match your filters.</p>
+                  <Button variant="outline" size="sm" onClick={() => openCreate('todo')}>
+                    Add a task
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className={styles.listHeaderRow}>
+                    <div className={styles.listCheckboxWrap}>
+                      <input
+                        type="checkbox"
+                        className={styles.checkbox}
+                        checked={
+                          selectedTaskIds.length === filteredTasks.length &&
+                          filteredTasks.length > 0
+                        }
+                        onChange={toggleSelectAll}
+                        aria-label="Select all tasks"
+                      />
+                    </div>
+                    <span>Status</span>
+                    <span>Task Title</span>
+                    <span>Subtasks</span>
+                    <span>Priority</span>
+                    <span>Assignee</span>
+                    <span>Due Date</span>
+                  </div>
+
+                  {filteredTasks.map((task) => {
+                    const assignee = members.find((m) => m.id === task.assignee_id);
+                    const isSelected = selectedTaskIds.includes(task.id);
+                    const isExpanded = expandedListTaskIds.includes(task.id);
+                    const isOverdue =
+                      !!task.due_date &&
+                      task.status !== 'done' &&
+                      new Date(task.due_date + 'T23:59:59').getTime() < new Date().getTime();
+
+                    const totalSubtasks = task.subtasks?.length ?? 0;
+                    const completedSubtasks = task.subtasks?.filter((s) => s.completed).length ?? 0;
+
+                    return (
+                      <React.Fragment key={task.id}>
+                        <div
+                          className={`${styles.listRow} ${isSelected ? styles.listRowSelected : ''}`}
+                          onClick={() => openEdit(task)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => e.key === 'Enter' && openEdit(task)}
+                        >
+                          <div
+                            className={styles.listCheckboxWrap}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              className={styles.checkbox}
+                              checked={isSelected}
+                              onChange={() => toggleSelectTask(task.id)}
+                              aria-label={`Select ${task.title}`}
+                            />
+                          </div>
+                          <span
+                            className={`${styles.listStatus} ${styles[`listStatus_${task.status}`]}`}
+                          >
+                            {task.status.replace('_', ' ')}
+                          </span>
+                          <div className={styles.listMain}>
+                            <span className={styles.listTitle}>{task.title}</span>
+                            {task.description && (
+                              <span className={styles.listDesc}>{task.description}</span>
+                            )}
+                          </div>
+
+                          <div>
+                            {totalSubtasks > 0 ? (
+                              <button
+                                type="button"
+                                className={styles.listSubtasksBtn}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedListTaskIds((prev) =>
+                                    prev.includes(task.id)
+                                      ? prev.filter((id) => id !== task.id)
+                                      : [...prev, task.id]
+                                  );
+                                }}
+                                title={`${completedSubtasks} of ${totalSubtasks} completed. Click to toggle checklist.`}
+                              >
+                                <CheckSquare size={12} />
+                                {completedSubtasks}/{totalSubtasks}
+                                {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                              </button>
+                            ) : (
+                              <span className={styles.listUnassigned}>—</span>
+                            )}
+                          </div>
+
+                          <span
+                            className={`${styles.listPriority} ${styles[`listPriority_${task.priority}`]}`}
+                          >
+                            {task.priority}
+                          </span>
+                          {assignee ? (
+                            <span className={styles.listAssignee} title={assignee.name}>
+                              {assignee.name
+                                .split(' ')
+                                .map((n) => n[0])
+                                .join('')
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </span>
+                          ) : (
+                            <span className={styles.listUnassigned}>—</span>
+                          )}
+                          <span className={styles.listDate}>
+                            {task.due_date ? (
+                              isOverdue ? (
+                                <span className={styles.listDateOverdue} title="Overdue task">
+                                  <AlertCircle size={12} /> {task.due_date} Overdue
+                                </span>
+                              ) : (
+                                task.due_date
+                              )
+                            ) : (
+                              '—'
+                            )}
+                          </span>
+                        </div>
+
+                        {isExpanded && task.subtasks && task.subtasks.length > 0 && (
+                          <div
+                            className={styles.listExpandedSubtasks}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {task.subtasks.map((st) => (
+                              <div
+                                key={st.id}
+                                className={styles.subtaskRow}
+                                onClick={() => handleSubtaskToggle(task.id, st.id, !st.completed)}
+                                role="button"
+                                tabIndex={0}
+                              >
+                                <button type="button" className={styles.subtaskCheckbox}>
+                                  {st.completed ? (
+                                    <CheckSquare size={15} className={styles.subtaskCheckDone} />
+                                  ) : (
+                                    <Square size={15} className={styles.subtaskCheckTodo} />
+                                  )}
+                                </button>
+                                <span
+                                  className={`${styles.subtaskTitle} ${st.completed ? styles.subtaskTitleDone : ''}`}
+                                >
+                                  {st.title}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </>
+              )}
+            </div>
           </div>
         )}
       </main>
@@ -703,6 +1153,16 @@ export default function ProjectDetailPage() {
         message="This task will be permanently removed. This action cannot be undone."
         confirmLabel="Delete task"
         isLoading={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title="Delete Selected Tasks"
+        message={`This will permanently delete ${selectedTaskIds.length} task(s). This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedTaskIds.length} task(s)`}
+        isLoading={isBulkDeleting}
       />
 
       <SideSheet

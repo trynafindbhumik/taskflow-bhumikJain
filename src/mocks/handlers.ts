@@ -103,6 +103,11 @@ const mockTasks: Task[] = [
     project_id: 'p1',
     assignee_id: 'u1',
     due_date: '2024-04-15',
+    subtasks: [
+      { id: 'st1', title: 'Sketch initial layout options', completed: true },
+      { id: 'st2', title: 'Finalize mobile layout wireframe', completed: true },
+      { id: 'st3', title: 'Export design assets for dev', completed: true },
+    ],
     created_at: '2024-03-02T10:00:00Z',
     updated_at: '2024-03-15T10:00:00Z',
   },
@@ -115,6 +120,11 @@ const mockTasks: Task[] = [
     project_id: 'p1',
     assignee_id: 'u2',
     due_date: '2024-04-20',
+    subtasks: [
+      { id: 'st4', title: 'Setup header bar HTML structure', completed: true },
+      { id: 'st5', title: 'Build mobile drawer animation', completed: false },
+      { id: 'st6', title: 'Add keyboard accessibility (⌘K shortcut)', completed: false },
+    ],
     created_at: '2024-03-03T10:00:00Z',
     updated_at: '2024-03-16T10:00:00Z',
   },

@@ -16,6 +16,12 @@ export interface Project {
   created_at: string;
 }
 
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -25,6 +31,7 @@ export interface Task {
   project_id: string;
   assignee_id?: string;
   due_date?: string;
+  subtasks?: Subtask[];
   created_at: string;
   updated_at: string;
 }
